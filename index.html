@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Financeiro</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1a2234;
+    --border: #1f2d45;
+    --accent: #00d4ff;
+    --accent2: #7c3aed;
+    --accent3: #10b981;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+    --text: #e2e8f0;
+    --text-muted: #64748b;
+    --card-glow: 0 0 30px rgba(0,212,255,0.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Space Grotesk', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container { max-width: 1300px; margin: 0 auto; padding: 32px 24px; position: relative; z-index: 1; }
+
+  /* Header */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 40px;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .header-left h1 {
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+  }
+
+  .header-left h1 span {
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .header-left p {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-top: 6px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .month-badge {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 18px;
+    font-size: 0.85rem;
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+    white-space: nowrap;
+    align-self: center;
+  }
+
+  /* KPI Cards Row */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--card-glow);
+    transition: transform 0.2s, border-color 0.2s;
+  }
+
+  .kpi-card:hover { transform: translateY(-3px); border-color: var(--accent); }
+
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .kpi-card.blue::before { background: linear-gradient(90deg, var(--accent), transparent); }
+  .kpi-card.purple::before { background: linear-gradient(90deg, var(--accent2), transparent); }
+  .kpi-card.green::before { background: linear-gradient(90deg, var(--accent3), transparent); }
+  .kpi-card.red::before { background: linear-gradient(90deg, var(--danger), transparent); }
+  .kpi-card.yellow::before { background: linear-gradient(90deg, var(--warning), transparent); }
+
+  .kpi-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+  }
+
+  .kpi-value {
+    font-size: 1.7rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+
+  .kpi-value.accent { color: var(--accent); }
+  .kpi-value.green { color: var(--accent3); }
+  .kpi-value.red { color: var(--danger); }
+  .kpi-value.yellow { color: var(--warning); }
+  .kpi-value.purple { color: #a78bfa; }
+
+  .kpi-sub {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 8px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .kpi-icon {
+    position: absolute;
+    top: 20px; right: 20px;
+    font-size: 1.4rem;
+    opacity: 0.5;
+  }
+
+  /* Progress bar */
+  .progress-wrap { margin-top: 12px; }
+  .progress-bar-bg {
+    background: var(--border);
+    border-radius: 99px;
+    height: 5px;
+    overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width 1.2s cubic-bezier(0.16,1,0.3,1);
+  }
+
+  /* Main grid */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 24px;
+  }
+
+  @media (max-width: 900px) { .main-grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: var(--card-glow);
+  }
+
+  .card-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-title::before {
+    content: '';
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+  }
+
+  /* Expense table */
+  .expense-table { width: 100%; border-collapse: collapse; }
+  .expense-table th {
+    text-align: left;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    padding: 0 0 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .expense-table th:last-child { text-align: right; }
+
+  .expense-table td {
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(31,45,69,0.6);
+    font-size: 0.9rem;
+    vertical-align: middle;
+  }
+  .expense-table td:last-child { text-align: right; }
+
+  .exp-name { font-weight: 500; }
+  .exp-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    padding: 2px 7px;
+    border-radius: 99px;
+    background: rgba(0,212,255,0.1);
+    color: var(--accent);
+    margin-left: 6px;
+    font-family: 'DM Mono', monospace;
+    vertical-align: middle;
+  }
+  .exp-amount {
+    font-family: 'DM Mono', monospace;
+    font-weight: 500;
+    color: #f87171;
+  }
+  .exp-bar-cell { width: 80px; padding-right: 12px !important; }
+  .exp-mini-bar {
+    background: var(--border);
+    border-radius: 99px;
+    height: 4px;
+    overflow: hidden;
+  }
+  .exp-mini-fill {
+    height: 100%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    transition: width 1.5s cubic-bezier(0.16,1,0.3,1);
+  }
+
+  /* Receipt input section */
+  .receita-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+
+  .input-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 12px;
+    margin-top: 16px;
+    align-items: end;
+  }
+
+  @media (max-width: 640px) { .input-row { grid-template-columns: 1fr; } }
+
+  .input-group { display: flex; flex-direction: column; gap: 6px; }
+  .input-group label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; }
+
+  .input-group input, .input-group select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-size: 0.9rem;
+    font-family: 'DM Mono', monospace;
+    outline: none;
+    transition: border-color 0.2s;
+    width: 100%;
+  }
+
+  .input-group input:focus, .input-group select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,212,255,0.1);
+  }
+
+  .btn-add {
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    border: none;
+    border-radius: 10px;
+    padding: 10px 20px;
+    color: white;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+  .btn-add:hover { opacity: 0.9; transform: scale(1.02); }
+  .btn-add:active { transform: scale(0.98); }
+
+  /* Semanas */
+  .semanas-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  @media (max-width: 700px) { .semanas-grid { grid-template-columns: repeat(2, 1fr); } }
+
+  .semana-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+    position: relative;
+    transition: border-color 0.2s;
+  }
+
+  .semana-card.ativa { border-color: var(--accent3); }
+
+  .semana-num {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+
+  .semana-valor {
+    font-family: 'DM Mono', monospace;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--accent3);
+  }
+
+  .semana-meta {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .semana-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin: 6px auto 0;
+  }
+  .semana-dot.ok { background: var(--accent3); }
+  .semana-dot.nok { background: var(--danger); }
+  .semana-dot.empty { background: var(--border); }
+
+  /* Receitas list */
+  .receitas-list { max-height: 260px; overflow-y: auto; margin-top: 16px; }
+  .receitas-list::-webkit-scrollbar { width: 4px; }
+  .receitas-list::-webkit-scrollbar-track { background: var(--surface2); border-radius: 99px; }
+  .receitas-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+  .receita-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 4px;
+    background: var(--surface2);
+    animation: slideIn 0.3s ease;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .receita-item-info { display: flex; flex-direction: column; gap: 2px; }
+  .receita-item-desc { font-size: 0.85rem; font-weight: 500; }
+  .receita-item-meta { font-size: 0.7rem; color: var(--text-muted); font-family: 'DM Mono', monospace; }
+  .receita-item-val { font-family: 'DM Mono', monospace; font-size: 0.9rem; font-weight: 600; color: var(--accent3); }
+
+  .btn-del {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    font-size: 0.85rem;
+    transition: color 0.2s;
+    margin-left: 8px;
+  }
+  .btn-del:hover { color: var(--danger); }
+
+  .empty-state {
+    text-align: center;
+    padding: 30px;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+  }
+
+  /* Chart canvas */
+  .chart-wrap { position: relative; height: 220px; }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* Utility */
+  .full-width { grid-column: 1 / -1; }
+  .flex-between { display: flex; justify-content: space-between; align-items: center; }
+
+  /* Animated entry */
+  .fade-up {
+    opacity: 0;
+    transform: translateY(20px);
+    animation: fadeUp 0.5s ease forwards;
+  }
+  @keyframes fadeUp {
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header fade-up">
+    <div class="header-left">
+      <h1>Dashboard<br><span>Financeiro</span></h1>
+      <p id="data-atual">carregando...</p>
+    </div>
+    <div class="month-badge" id="mes-atual">── JUNHO 2026 ──</div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-grid fade-up" style="animation-delay:0.1s">
+    <div class="kpi-card blue">
+      <div class="kpi-icon">💰</div>
+      <div class="kpi-label">Receita do Mês</div>
+      <div class="kpi-value accent" id="kpi-receita">R$ 0,00</div>
+      <div class="kpi-sub">Meta: R$ 8.000,00</div>
+      <div class="progress-wrap">
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="bar-receita" style="width:0%;background:linear-gradient(90deg,#00d4ff,#7c3aed)"></div>
+        </div>
+      </div>
+    </div>
+    <div class="kpi-card red">
+      <div class="kpi-icon">📋</div>
+      <div class="kpi-label">Total Despesas</div>
+      <div class="kpi-value red">R$ 6.790,00</div>
+      <div class="kpi-sub">9 categorias</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-icon">📊</div>
+      <div class="kpi-label">Saldo do Mês</div>
+      <div class="kpi-value" id="kpi-saldo" style="color:#64748b">R$ 0,00</div>
+      <div class="kpi-sub" id="kpi-saldo-sub">Aguardando receitas</div>
+    </div>
+    <div class="kpi-card yellow">
+      <div class="kpi-icon">🎯</div>
+      <div class="kpi-label">Meta Semanal</div>
+      <div class="kpi-value yellow" id="kpi-semana">R$ 0,00</div>
+      <div class="kpi-sub">Meta: R$ 2.000,00 / semana</div>
+      <div class="progress-wrap">
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="bar-semana" style="width:0%;background:linear-gradient(90deg,#f59e0b,#ef4444)"></div>
+        </div>
+      </div>
+    </div>
+    <div class="kpi-card purple">
+      <div class="kpi-icon">%</div>
+      <div class="kpi-label">% Meta Mensal</div>
+      <div class="kpi-value purple" id="kpi-pct">0%</div>
+      <div class="kpi-sub" id="kpi-falta">Faltam R$ 8.000,00</div>
+    </div>
+  </div>
+
+  <!-- Lançar Receita -->
+  <div class="receita-section fade-up" style="animation-delay:0.2s">
+    <div class="card-title">Lançar Receita</div>
+    <div class="input-row">
+      <div class="input-group">
+        <label>Descrição do Serviço</label>
+        <input type="text" id="inp-desc" placeholder="Ex: Consultoria, Venda, Freela...">
+      </div>
+      <div class="input-group">
+        <label>Valor (R$)</label>
+        <input type="number" id="inp-valor" placeholder="0,00" min="0" step="0.01">
+      </div>
+      <div class="input-group">
+        <label>Semana</label>
+        <select id="inp-semana">
+          <option value="1">Semana 1</option>
+          <option value="2">Semana 2</option>
+          <option value="3">Semana 3</option>
+          <option value="4">Semana 4</option>
+        </select>
+      </div>
+      <button class="btn-add" onclick="adicionarReceita()">+ Adicionar</button>
+    </div>
+  </div>
+
+  <!-- Semanas grid -->
+  <div class="card fade-up" style="animation-delay:0.25s; margin-bottom:24px">
+    <div class="card-title">Progresso por Semana</div>
+    <div class="semanas-grid" id="semanas-grid">
+      <!-- gerado por JS -->
+    </div>
+  </div>
+
+  <!-- Main grid: charts + table -->
+  <div class="main-grid fade-up" style="animation-delay:0.3s">
+    <!-- Despesas donut -->
+    <div class="card">
+      <div class="card-title">Distribuição de Despesas</div>
+      <div class="chart-wrap">
+        <canvas id="chart-donut"></canvas>
+      </div>
+    </div>
+
+    <!-- Receita vs Meta bar -->
+    <div class="card">
+      <div class="card-title">Receita Semanal vs Meta</div>
+      <div class="chart-wrap">
+        <canvas id="chart-bar"></canvas>
+      </div>
+    </div>
+
+    <!-- Tabela de despesas -->
+    <div class="card full-width">
+      <div class="card-title">Despesas Mensais Detalhadas</div>
+      <table class="expense-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Categoria</th>
+            <th class="exp-bar-cell">Peso</th>
+            <th>Valor</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-despesas"></tbody>
+      </table>
+    </div>
+
+    <!-- Lista de receitas -->
+    <div class="card full-width">
+      <div class="flex-between" style="margin-bottom:4px">
+        <div class="card-title" style="margin-bottom:0">Receitas Lançadas</div>
+        <span style="font-size:0.75rem;color:var(--text-muted);font-family:'DM Mono',monospace" id="total-lancado">Total: R$ 0,00</span>
+      </div>
+      <div class="receitas-list" id="receitas-list">
+        <div class="empty-state">Nenhuma receita lançada ainda.<br>Use o formulário acima para começar! 🚀</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Dashboard Financeiro • Gerado por Claude • Dados salvos localmente no navegador
+  </div>
+</div>
+
+<script>
+// ── Dados ────────────────────────────────────────────────────────────────────
+const DESPESAS = [
+  { nome: "Aluguel",               valor: 1200 },
+  { nome: "Claude (serviço)",      valor: 560  },
+  { nome: "Cartão MEI",            valor: 560  },
+  { nome: "Água/Energia/Internet", valor: 500  },
+  { nome: "Energia",               valor: 620  },
+  { nome: "Cartão C. Bahia",       valor: 550  },
+  { nome: "Atacado",               valor: 550  },
+  { nome: "Riachuelo",             valor: 1500 },
+  { nome: "Ads (Publicidade)",     valor: 1250 },
+];
+const TOTAL_DESP = DESPESAS.reduce((s,d) => s+d.valor, 0);
+const META_MES   = 8000;
+const META_SEM   = 2000;
+
+const CORES_DONUT = [
+  "#00d4ff","#7c3aed","#10b981","#f59e0b","#ef4444",
+  "#a78bfa","#34d399","#fbbf24","#60a5fa"
+];
+
+// ── Estado ───────────────────────────────────────────────────────────────────
+let receitas = JSON.parse(localStorage.getItem("fin_receitas") || "[]");
+let chartDonut = null, chartBar = null;
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+function init() {
+  // Data
+  const now = new Date();
+  document.getElementById("data-atual").textContent =
+    now.toLocaleDateString("pt-BR", { weekday:"long", day:"numeric", month:"long", year:"numeric" });
+  document.getElementById("mes-atual").textContent =
+    "── " + now.toLocaleDateString("pt-BR",{month:"long",year:"numeric"}).toUpperCase() + " ──";
+
+  renderTabelaDespesas();
+  initCharts();
+  renderTudo();
+  // Animate bars after render
+  setTimeout(() => animateBars(), 200);
+}
+
+// ── Render ───────────────────────────────────────────────────────────────────
+function renderTabelaDespesas() {
+  const tbody = document.getElementById("tbody-despesas");
+  tbody.innerHTML = DESPESAS.map((d,i) => {
+    const pct = (d.valor / TOTAL_DESP * 100).toFixed(1);
+    return `<tr>
+      <td style="color:var(--text-muted);font-family:'DM Mono',monospace;font-size:0.8rem">${String(i+1).padStart(2,"0")}</td>
+      <td><span class="exp-name">${d.nome}</span></td>
+      <td class="exp-bar-cell">
+        <div class="exp-mini-bar"><div class="exp-mini-fill" style="width:${pct}%" data-w="${pct}"></div></div>
+      </td>
+      <td class="exp-amount">R$ ${d.valor.toLocaleString("pt-BR",{minimumFractionDigits:2})}</td>
+    </tr>`;
+  }).join("");
+}
+
+function initCharts() {
+  const donutCtx = document.getElementById("chart-donut").getContext("2d");
+  chartDonut = new Chart(donutCtx, {
+    type: "doughnut",
+    data: {
+      labels: DESPESAS.map(d => d.nome),
+      datasets: [{
+        data: DESPESAS.map(d => d.valor),
+        backgroundColor: CORES_DONUT,
+        borderColor: "#111827",
+        borderWidth: 2,
+        hoverBorderWidth: 3,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: "65%",
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: "#1a2234",
+          titleColor: "#e2e8f0",
+          bodyColor: "#64748b",
+          borderColor: "#1f2d45",
+          borderWidth: 1,
+          callbacks: {
+            label: ctx => ` R$ ${ctx.parsed.toLocaleString("pt-BR",{minimumFractionDigits:2})} (${(ctx.parsed/TOTAL_DESP*100).toFixed(1)}%)`
+          }
+        }
+      }
+    }
+  });
+
+  const barCtx = document.getElementById("chart-bar").getContext("2d");
+  chartBar = new Chart(barCtx, {
+    type: "bar",
+    data: {
+      labels: ["Semana 1","Semana 2","Semana 3","Semana 4"],
+      datasets: [
+        {
+          label: "Receita",
+          data: [0,0,0,0],
+          backgroundColor: ["rgba(0,212,255,0.7)","rgba(0,212,255,0.7)","rgba(0,212,255,0.7)","rgba(0,212,255,0.7)"],
+          borderRadius: 8,
+        },
+        {
+          label: "Meta",
+          data: [2000,2000,2000,2000],
+          type: "line",
+          borderColor: "#f59e0b",
+          borderDash: [5,4],
+          borderWidth: 2,
+          pointRadius: 0,
+          fill: false,
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          labels: { color: "#64748b", font: { family: "Space Grotesk", size: 11 }, boxWidth: 12 }
+        },
+        tooltip: {
+          backgroundColor: "#1a2234",
+          titleColor: "#e2e8f0",
+          bodyColor: "#64748b",
+          borderColor: "#1f2d45",
+          borderWidth: 1,
+          callbacks: {
+            label: ctx => ` R$ ${ctx.parsed.y.toLocaleString("pt-BR",{minimumFractionDigits:2})}`
+          }
+        }
+      },
+      scales: {
+        x: { grid: { color: "rgba(31,45,69,0.6)" }, ticks: { color: "#64748b", font: { family: "Space Grotesk", size: 11 } } },
+        y: { grid: { color: "rgba(31,45,69,0.6)" }, ticks: { color: "#64748b", font: { family: "DM Mono", size: 10 },
+             callback: v => "R$ " + v.toLocaleString("pt-BR") } }
+      }
+    }
+  });
+}
+
+function renderTudo() {
+  const totalReceita = receitas.reduce((s,r) => s+r.valor, 0);
+  const saldo = totalReceita - TOTAL_DESP;
+
+  // KPIs
+  document.getElementById("kpi-receita").textContent = "R$ " + totalReceita.toLocaleString("pt-BR",{minimumFractionDigits:2});
+  document.getElementById("kpi-saldo").textContent = "R$ " + Math.abs(saldo).toLocaleString("pt-BR",{minimumFractionDigits:2});
+  document.getElementById("kpi-saldo").style.color = saldo >= 0 ? "var(--accent3)" : "var(--danger)";
+  document.getElementById("kpi-saldo-sub").textContent = saldo >= 0 ? "✓ No positivo" : "⚠ No negativo";
+
+  const pct = Math.min((totalReceita / META_MES * 100), 100);
+  document.getElementById("kpi-pct").textContent = pct.toFixed(1) + "%";
+  const falta = Math.max(META_MES - totalReceita, 0);
+  document.getElementById("kpi-falta").textContent = falta > 0
+    ? `Faltam R$ ${falta.toLocaleString("pt-BR",{minimumFractionDigits:2})}`
+    : "🎉 Meta atingida!";
+
+  document.getElementById("bar-receita").style.width = pct + "%";
+
+  // Semanas
+  const semanaTotais = [1,2,3,4].map(s => receitas.filter(r => r.semana === s).reduce((a,r) => a+r.valor, 0));
+  const semanaAtual = semanaTotais.reduce((max,v,i) => v > semanaTotais[max] ? i : max, 0);
+
+  document.getElementById("kpi-semana").textContent =
+    "R$ " + semanaTotais[semanaAtual].toLocaleString("pt-BR",{minimumFractionDigits:2});
+  const semPct = Math.min(semanaTotais[semanaAtual] / META_SEM * 100, 100);
+  document.getElementById("bar-semana").style.width = semPct + "%";
+
+  const grid = document.getElementById("semanas-grid");
+  grid.innerHTML = [1,2,3,4].map(s => {
+    const val = semanaTotais[s-1];
+    const ok = val >= META_SEM;
+    const empty = val === 0;
+    return `<div class="semana-card ${ok ? "ativa" : ""}">
+      <div class="semana-num">Semana ${s}</div>
+      <div class="semana-valor">R$ ${val.toLocaleString("pt-BR",{minimumFractionDigits:2})}</div>
+      <div class="semana-meta">meta R$ 2.000</div>
+      <div class="semana-dot ${empty ? "empty" : ok ? "ok" : "nok"}"></div>
+    </div>`;
+  }).join("");
+
+  // Chart bar update
+  chartBar.data.datasets[0].data = semanaTotais;
+  chartBar.data.datasets[0].backgroundColor = semanaTotais.map(v =>
+    v >= META_SEM ? "rgba(16,185,129,0.75)" : "rgba(0,212,255,0.65)"
+  );
+  chartBar.update();
+
+  // Lista receitas
+  document.getElementById("total-lancado").textContent =
+    "Total: R$ " + totalReceita.toLocaleString("pt-BR",{minimumFractionDigits:2});
+
+  const list = document.getElementById("receitas-list");
+  if (receitas.length === 0) {
+    list.innerHTML = '<div class="empty-state">Nenhuma receita lançada ainda.<br>Use o formulário acima para começar! 🚀</div>';
+  } else {
+    list.innerHTML = [...receitas].reverse().map((r,i) => {
+      const realIdx = receitas.length - 1 - i;
+      return `<div class="receita-item">
+        <div class="receita-item-info">
+          <span class="receita-item-desc">${r.desc}</span>
+          <span class="receita-item-meta">Semana ${r.semana} · ${r.data}</span>
+        </div>
+        <div style="display:flex;align-items:center">
+          <span class="receita-item-val">+ R$ ${r.valor.toLocaleString("pt-BR",{minimumFractionDigits:2})}</span>
+          <button class="btn-del" onclick="removerReceita(${realIdx})">✕</button>
+        </div>
+      </div>`;
+    }).join("");
+  }
+}
+
+function animateBars() {
+  document.querySelectorAll(".exp-mini-fill").forEach(el => {
+    el.style.width = "0%";
+    setTimeout(() => { el.style.width = el.getAttribute("data-w") + "%"; }, 100);
+  });
+}
+
+// ── Ações ────────────────────────────────────────────────────────────────────
+function adicionarReceita() {
+  const desc  = document.getElementById("inp-desc").value.trim();
+  const valor = parseFloat(document.getElementById("inp-valor").value);
+  const semana = parseInt(document.getElementById("inp-semana").value);
+
+  if (!desc || isNaN(valor) || valor <= 0) {
+    document.getElementById("inp-desc").style.borderColor = !desc ? "var(--danger)" : "";
+    document.getElementById("inp-valor").style.borderColor = (isNaN(valor)||valor<=0) ? "var(--danger)" : "";
+    return;
+  }
+
+  document.getElementById("inp-desc").style.borderColor = "";
+  document.getElementById("inp-valor").style.borderColor = "";
+
+  const agora = new Date();
+  receitas.push({
+    desc, valor, semana,
+    data: agora.toLocaleDateString("pt-BR")
+  });
+
+  localStorage.setItem("fin_receitas", JSON.stringify(receitas));
+
+  document.getElementById("inp-desc").value = "";
+  document.getElementById("inp-valor").value = "";
+  renderTudo();
+}
+
+function removerReceita(idx) {
+  receitas.splice(idx, 1);
+  localStorage.setItem("fin_receitas", JSON.stringify(receitas));
+  renderTudo();
+}
+
+// Enter key support
+document.addEventListener("DOMContentLoaded", () => {
+  ["inp-desc","inp-valor","inp-semana"].forEach(id => {
+    document.getElementById(id).addEventListener("keydown", e => {
+      if (e.key === "Enter") adicionarReceita();
+    });
+  });
+});
+
+init();
+</script>
+</body>
+</html>
